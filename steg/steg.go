@@ -328,12 +328,4 @@ func byteToBits(bits []byte, b byte) error {
 
 func pow(x, y int) int {
 	return int(math.Pow(float64(x), float64(y)))
-	// n := x
-	// if y == 0 {
-	// 	return 1
-	// }
-	// for i := 0; i < y-1; i++ {
-	// 	x *= n
-	// }
-	// return x
 }
