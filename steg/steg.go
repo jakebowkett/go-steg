@@ -1,6 +1,40 @@
 /*
 Package steg provides steganographic encoding of messages
 inside of PNG files.
+
+	src := "image.png"
+	dst := "image_with_msg.png"
+	msg := "Hello"
+
+	var enc steg.Encoder
+
+	// Tell enc to write msg to the most significant
+	// bit. This will be visible in the image saved
+	// to dst, showing us where msg has been written.
+	enc.SetMsgBit(7)
+
+	// Start writing 200 pixels from the left, 100
+	// pixels from the top.
+	start := steg.Point{X: 200, Y: 100}
+
+	// Take src and write msg into it then save it to
+	// dst. The end return value is a steg.Point that
+	// represents the pixel immediately after the last
+	// pixel msg was written to.
+	end, err := enc.Encode(src, dst, msg, start)
+	if err != nil  {
+		// Handle error.
+	}
+
+	// We can then open dst and verify that msg was
+	// encoded from start until end.
+	retrievedMsg, err := enc.Decode(dst, start, end)
+	if err != nil  {
+		// Handle error.
+	}
+
+	fmt.Println(retrievedMsg)
+
 */
 package steg
 
@@ -23,7 +57,7 @@ type Point struct {
 }
 
 func (p1 *Point) before(p2 Point) bool {
-	if p1.Y >= p2.Y && p1.X >= p2.X {
+	if p1.Y >= p2.Y && p1.X > p2.X {
 		return false
 	}
 	return true
@@ -31,7 +65,7 @@ func (p1 *Point) before(p2 Point) bool {
 
 /*
 Encoder has methods for writing and retrieving messages
-written in PNG images. It defaults to encode messages to
+written in PNG images. It defaults to encoding messages in
 the least significant bit.
 */
 type Encoder struct {
@@ -58,9 +92,9 @@ Encode takes the image at src and writes it to dst with msg
 stored inside it. The value of start is a pixel coordinate
 determining where the message will begin to be written.
 
-Each byte of the image from start will contain one bit of msg
+Each pixel of the image from start will contain one bit of msg
 until msg is fully written. This means that msg needs len(msg)*8
-bytes of space from start to store its entire payload.
+pixels from start to store its entire payload.
 
 Encode returns end which is the coordinates of the first pixel
 after msg.
@@ -106,8 +140,7 @@ func (e *Encoder) Encode(src, dst, msg string, start Point) (end Point, err erro
 		return end, errors.New("end point out of bounds")
 	}
 
-	tmp := make([]byte, 8)
-
+	var tmp [8]byte
 	var i uint
 	offset := offsetFromMin(bounds, start)
 
@@ -128,7 +161,7 @@ outer:
 			mod := i % 8
 
 			if mod == 0 {
-				byteToBits(tmp, msg[(i-offset)/8])
+				byteToBits(&tmp, msg[(i-offset)/8])
 			}
 
 			r, g, b, a := img.At(x, y).RGBA()
@@ -205,8 +238,7 @@ func (e *Encoder) Decode(src string, start, end Point) (msg string, err error) {
 		return msg, errors.New("end point out of bounds")
 	}
 
-	tmp := make([]byte, 8)
-
+	var tmp [8]byte
 	var i uint
 
 outer:
@@ -285,11 +317,7 @@ func pointAtOffset(r image.Rectangle, p Point, offset int) Point {
 	return p
 }
 
-func bitsToByte(bits []byte) (b byte, err error) {
-
-	if len(bits) != 8 {
-		return b, errors.New("byte slice must be exactly len(8)")
-	}
+func bitsToByte(bits [8]byte) (b byte, err error) {
 
 	for i, bit := range bits {
 
@@ -304,11 +332,7 @@ func bitsToByte(bits []byte) (b byte, err error) {
 	return b, nil
 }
 
-func byteToBits(bits []byte, b byte) error {
-
-	if len(bits) != 8 {
-		return errors.New("byte slice must be exactly len(8)")
-	}
+func byteToBits(bits *[8]byte, b byte) error {
 
 	for i := range bits {
 
